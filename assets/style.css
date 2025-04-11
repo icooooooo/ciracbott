@@ -1,0 +1,327 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Poppins:wght@600&display=swap');
+
+/* --- Définition des VARIABLES (MISES EN HAUT) --- */
+:root {
+  /* Polices */
+  --font-title: 'Poppins', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-weight-title: 600;
+  --font-weight-body: 400;
+  --font-weight-label: 500;
+
+  /* === THÈME CLAIR === */
+  --bg-primary: #F8F9FA;      /* Blanc cassé - Fond */
+  --navbar-bg: #64B5F6;       /* Bleu clair - Navbar */
+  --text-main: #2C2F33;       /* Gris anthracite - Texte */
+  --bg-secondary: #FFFFFF;   /* Blanc pur - Cartes, etc. */
+  --accent-primary: #1565C0; /* Bleu foncé - Boutons */
+  --color-success: #A5D6A7;    /* Vert doux */
+  --color-warning: #FFCC80;   /* Orange pastel */
+  --text-on-accent: #FFFFFF;  /* Texte sur boutons */
+  --text-on-navbar: #FFFFFF;  /* Texte sur navbar */
+  --text-subtle: #5a6268;     /* Texte secondaire */
+  --border-color: #dee2e6;     /* Bordures */
+  --color-rating-star: var(--color-warning);
+  /* Couleurs Chatbot (Clair) */
+  --chatbot-bg-left-final: var(--bg-secondary);
+  --chatbot-bg-right-final: var(--accent-primary);
+  --chatbot-text-left-final: var(--text-main);
+  --chatbot-text-right-final: var(--text-on-accent);
+}
+
+/* === NOUVEAU THÈME SOMBRE (Mis à jour) === */
+.theme-dark {
+  /* Couleurs principales */
+  /* --bg-primary: #1C1C1E ;      🔲 Gris très foncé - Fond principal */
+  --navbar-bg:  #00495e ;       /* 🔵 Bleu nuit foncé - Navbar */
+  --text-main: #ffffff;       /* ⚪ Gris clair - Texte principal */
+  --bg-secondary: #FFFFFF ;     /* ⚫ Gris foncé - Arrière-plans secondaires */
+
+  /* Couleurs d'accentuation */
+  --accent-primary: #ffffff  ;  /* 🔵 Bleu foncé - Boutons principaux, hover */
+  --color-success: #27AE60   ;   /* 🟢 Vert clair - Validation, positif */
+  --color-warning: #E67E22    ;   /* 🟠 Orange doux - Notifications */
+
+  /* Couleurs dérivées/utilitaires */
+  --text-on-accent: #FFFFFF;  /* Blanc - Texte sur boutons bleus foncés */
+  --text-on-navbar: #EDEDED;  /* Blanc - Texte sur navbar bleu nuit foncé */
+  --text-subtle: #515151;     /* Gris moyen - Texte secondaire/labels */
+  --border-color: #3B3B3B;    /* Gris plus foncé - Bordures */
+  --color-rating-star: var(--color-warning); /* Orange doux pour les étoiles */
+
+  /* Couleurs spécifiques Chatbot Thème Sombre */
+  --chatbot-bg-left-final: var(--bg-secondary);      /* Bot: Fond gris foncé */
+  --chatbot-bg-right-final: var(--accent-primary);   /* User: Fond bleu foncé */
+  --chatbot-text-left-final: #3B3B3B   ;   /* Bot: Texte gris clair */
+  --chatbot-text-right-final: #3B3B3B; /* User: Texte Blanc */
+  --gradient-primary: radial-gradient(circle at 20% 70%, rgba(0, 140, 500, 0.3), transparent 40%),
+                      radial-gradient(circle at 80% 30%, rgba(0, 140, 500, 0.3), transparent 40%),
+  #0f1215;
+}
+
+
+/* --- Styles de Base (Appliqués via #app-container) --- */
+#app-container.theme-light,
+#app-container.theme-dark {
+  font-family: var(--font-body);
+  font-weight: var(--font-weight-body);
+  background: var(--gradient-primary);
+  color: var(--text-main);
+  min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* --- Styles Spécifiques avec Spécificité Augmentée --- */
+
+/* Styles Communs */
+#app-container.theme-light h1, #app-container.theme-dark h1,
+#app-container.theme-light h2, #app-container.theme-dark h2,
+#app-container.theme-light h3, #app-container.theme-dark h3,
+#app-container.theme-light h4, #app-container.theme-dark h4,
+#app-container.theme-light h5, #app-container.theme-dark h5,
+#app-container.theme-light h6, #app-container.theme-dark h6 {
+  font-family: var(--font-title);
+  font-weight: var(--font-weight-title);
+  /* color: var(--text-main); -> Hérité */
+}
+
+#app-container.theme-light p, #app-container.theme-dark p {
+   line-height: 1.6;
+}
+
+#app-container.theme-light a, #app-container.theme-dark a {
+  color: var(--accent-primary); text-decoration: none;
+}
+#app-container.theme-light a:hover, #app-container.theme-dark a:hover {
+  text-decoration: underline;
+}
+
+#app-container.theme-light label, #app-container.theme-dark label {
+  font-family: var(--font-body);
+  font-weight: var(--font-weight-label);
+  color: var(--text-subtle);
+}
+
+/* Composants Dash/Bootstrap */
+#app-container.theme-light .btn, #app-container.theme-dark .btn,
+#app-container.theme-light .dbc-button, #app-container.theme-dark .dbc-button {
+  font-family: var(--font-title);
+  font-weight: var(--font-weight-title);
+  border: none; border-radius: 4px; padding: 0.5rem 1rem; cursor: pointer; transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#app-container.theme-light .btn-primary, #app-container.theme-dark .btn-primary {
+  background-color: var(--accent-primary); color: #2C2F33; border:2px solid black; border-radius: 300px;
+}
+#app-container.theme-light .btn-primary:hover { background-color: #104a8e; } /* Survol thème clair */
+#app-container.theme-dark .btn-primary:hover { opacity: 0.85; } /* Survol thème sombre */
+
+#app-container.theme-light .btn-success { background-color: var(--color-success); color: #2C2F33; } /* Texte foncé */
+#app-container.theme-dark .btn-success { background-color: var(--color-success); color: #181818; } /* Texte thème sombre (fond très foncé) */
+
+#app-container.theme-light .btn-warning { background-color: var(--color-warning); color: #2C2F33; } /* Texte foncé */
+#app-container.theme-dark .btn-warning { background-color: var(--color-warning); color: #181818; } /* Texte thème sombre */
+
+
+#app-container.theme-light .form-control, #app-container.theme-dark .form-control,
+#app-container.theme-light .input, #app-container.theme-dark .input,
+#app-container.theme-light .Select-control, #app-container.theme-dark .Select-control,
+#app-container.theme-light .DateInput_input, #app-container.theme-dark .DateInput_input {
+  background-color: var(--bg-secondary); color: #2C2F33; border: 1px solid var(--border-color); border-radius: 4px;
+}
+#app-container.theme-light .form-control::placeholder, #app-container.theme-dark .form-control::placeholder,
+#app-container.theme-light .input::placeholder, #app-container.theme-dark .input::placeholder { color: var(--text-subtle); }
+
+#app-container.theme-light .form-control:focus, #app-container.theme-dark .form-control:focus,
+#app-container.theme-light .input:focus, #app-container.theme-dark .input:focus,
+#app-container.theme-light .Select-control:focus, #app-container.theme-dark .Select-control:focus {
+   border-color: var(--accent-primary);
+}
+
+
+/* Styles spécifiques CIRACbot */
+#app-container.theme-light .ma-navbar-personnalisee, /* Utilise la classe perso si définie */
+#app-container.theme-dark .ma-navbar-personnalisee,
+#app-container.theme-light .navbar, /* Fallback si classe non changée */
+#app-container.theme-dark .navbar {
+  background-color: var(--navbar-bg) !important;
+  border-bottom: 1px solid var(--border-color);
+}
+#app-container.theme-light .ma-navbar-personnalisee .nav-link,
+#app-container.theme-dark .ma-navbar-personnalisee .nav-link,
+#app-container.theme-light .navbar .nav-link, /* Fallback */
+#app-container.theme-dark .navbar .nav-link {
+  color: var(--text-on-navbar); font-weight: var(--font-weight-label);
+}
+#app-container.theme-light .ma-navbar-personnalisee .nav-link:hover,
+#app-container.theme-dark .ma-navbar-personnalisee .nav-link:hover,
+#app-container.theme-light .navbar .nav-link:hover, /* Fallback */
+#app-container.theme-dark .navbar .nav-link:hover {
+    color: var(--text-on-navbar); opacity: 0.8;
+}
+#app-container.theme-light .ma-navbar-personnalisee .navbar-brand,
+#app-container.theme-dark .ma-navbar-personnalisee .navbar-brand,
+#app-container.theme-light .navbar .navbar-brand, /* Fallback */
+#app-container.theme-dark .navbar .navbar-brand {
+    color: var(--text-on-navbar);
+}
+
+
+#app-container.theme-light #page-content, #app-container.theme-dark #page-content {
+  padding: 20px;
+}
+
+#app-container.theme-light .chatbot-box, #app-container.theme-dark .chatbot-box {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 15px;
+  height: 400px; /* Ajustez */
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Style commun aux messages */
+#app-container.theme-light .chatbot-message, #app-container.theme-dark .chatbot-message {
+  padding: 10px 15px;
+  border-radius: 18px;
+  margin-bottom: 8px;
+  max-width: 75%;
+  word-wrap: break-word;
+  line-height: 1.4;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+#app-container.theme-dark .chatbot-message {
+    box-shadow: 0 1px 2px rgba(255,255,255,0.05);
+}
+
+/* Message du Bot (Gauche) */
+#app-container.theme-light .chatbot-message-left, #app-container.theme-dark .chatbot-message-left {
+    text-align: left;
+    background-color: var(--chatbot-bg-left-final); /* UTILISE VARIABLE */
+    color: var(--chatbot-text-left-final);          /* UTILISE VARIABLE */
+    margin-right: auto;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+    border-radius: 20px; /* Gardé de l'original */
+    padding: 10px;       /* Gardé de l'original */
+    margin-bottom: 10px; /* Gardé de l'original */
+    word-wrap: break-word; /* Gardé de l'original */
+}
+
+/* Message Utilisateur (Droite) */
+#app-container.theme-light .chatbot-message-right, #app-container.theme-dark .chatbot-message-right {
+    text-align: left; /* Lisibilité */
+    background-color: var(--chatbot-bg-right-final); /* UTILISE VARIABLE */
+    color: var(--chatbot-text-right-final);          /* UTILISE VARIABLE */
+    margin-left: auto;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+    border-radius: 20px; /* Gardé de l'original */
+    padding: 10px;       /* Gardé de l'original */
+    margin-bottom: 5px;  /* Gardé de l'original */
+    word-wrap: break-word; /* Gardé de l'original */
+}
+
+
+/* Zone de saisie et groupe d'input */
+.input-group { /* Pas besoin de contexte de thème ici */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 0 15px;
+    box-sizing: border-box;
+}
+#app-container.theme-light .chatbot-input, #app-container.theme-dark .chatbot-input {
+    width: 60%; /* Gardé de la version précédente */
+    max-width: 500px;
+    /* margin-right: 15px; -> Remplacé par margin sur le bouton */
+    /* Hérite des styles de .form-control */
+}
+.chatbot-input + .btn { /* Pas besoin de contexte de thème ici */
+    margin-left: 10px;
+}
+
+/* Barre de saisie fixe en bas */
+#app-container.theme-light .fixed-bottom-form, #app-container.theme-dark .fixed-bottom-form {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: var(--bg-secondary); /* UTILISE VARIABLE */
+    padding: 15px 10px; /* Version précédente */
+    z-index: 1000;
+    border-top: 1px solid var(--border-color);
+    box-shadow: 0 -2px 5px rgba(0,0,0,0.05);
+    /* text-align: center; -> Géré par .input-group */
+}
+#app-container.theme-dark .fixed-bottom-form {
+    box-shadow: 0 -2px 5px rgba(255,255,255,0.05);
+}
+
+
+/* Widget de Notation */
+#app-container.theme-light #rating-widget, #app-container.theme-dark #rating-widget {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  position: fixed;
+  bottom: 90px; /* Ajustez */
+  right: 20px;
+  padding: 10px 15px;
+  border-radius: 5px;
+  z-index: 1001;
+  text-align: center;
+  min-width: 180px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+#app-container.theme-dark #rating-widget {
+    box-shadow: 0 2px 5px rgba(255,255,255,0.1);
+}
+#app-container.theme-light #rating-widget p, #app-container.theme-dark #rating-widget p {
+  color: #2C2F33; font-size: small; margin-bottom: 5px;
+}
+#app-container.theme-light #rating-widget .dbc-button.bg-transparent,
+#app-container.theme-dark #rating-widget .dbc-button.bg-transparent {
+    color: var(--color-rating-star); transition: opacity 0.2s ease;
+}
+#app-container.theme-light #rating-widget .dbc-button.bg-transparent:hover,
+#app-container.theme-dark #rating-widget .dbc-button.bg-transparent:hover {
+    opacity: 0.7;
+}
+#app-container.theme-light #rating-widget p[style*="fontSize: small"], /* Message Merci */
+#app-container.theme-dark #rating-widget p[style*="fontSize: small"] {
+    color: var(--color-success); font-weight: var(--font-weight-label);
+}
+
+
+/* --- AJOUT : Styles pour supprimer la validation visuelle HTML5 --- */
+
+/* Cibler les inputs (y compris type email) et textareas avec la classe form-control
+   quand le navigateur les considère comme invalides (:invalid) */
+#app-container input.form-control:invalid,
+#app-container textarea.form-control:invalid {
+  /* Rétablir la couleur de bordure par défaut (celle définie pour .form-control) */
+  border-color: var(--border-color);
+
+  /* Supprimer l'ombre rouge/autre ajoutée par le navigateur */
+  box-shadow: none;
+
+  /* Supprimer le contour visuel ajouté par le navigateur (au cas où) */
+  outline: none;
+
+  /* Supprimer l'icône d'erreur de fond si Bootstrap/navigateur en ajoute une */
+  background-image: none;
+}
+
+/* Optionnel mais recommandé : Rétablir les styles de focus normaux même pour un champ invalide */
+/* Cela évite que le focus sur un champ invalide soit aussi en rouge */
+#app-container input.form-control:invalid:focus,
+#app-container textarea.form-control:invalid:focus {
+  border-color: var(--accent-primary); /* Ou votre couleur de focus préférée */
+  /* Recréer l'ombre de focus si vous en utilisez une pour les champs valides */
+  /* box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); /* Exemple Bootstrap */
+  box-shadow: none; /* Ou simplement s'assurer qu'il n'y a pas d'ombre au focus invalide */
+  outline: 0;
+}
