@@ -1,25 +1,26 @@
 import dash
-# Importer 'callback', 'no_update', etc.
-from dash import html, dcc, Input, Output, State, ALL, callback, no_update, callback_context
+
+from dash import html, dcc, Input, Output, State, ALL, callback, no_update, callback_context, MATCH
 import dash_bootstrap_components as dbc
-# from dash.dependencies import Input, Output, State, ALL # Plus nécessaire
-from dash.exceptions import PreventUpdate # Garder si utilisé, sinon no_update suffit
+from dash.exceptions import PreventUpdate 
 from flask_login import current_user
 import json
 import os
-import uuid # Importer uuid si pas déjà fait (pour générer des clés uniques si besoin)
-# import operator # Probablement pas nécessaire ici
+import uuid
 from datetime import datetime
-
+import sqlite3 
 # --- Enregistrement de la page ---
 dash.register_page(__name__, path='/agent')
 
 DATA_FILE = "reclamations.json"
+DB_FILE = "ciracbot.db" # <-- Chemin vers ta base de données SQLite
 DEFAULT_SORT_COLUMN = "date"
 DEFAULT_SORT_DIRECTION = False
 
-# --- Layout de la page (Protection ajoutée) ---
+# --- Définition des rôles possibles ---
+AVAILABLE_ROLES = ['utilisateur', 'admin'] # Adapte si tes rôles sont différents
 def layout():
+    # ... (code du layout inchangé, s'assurer qu'il contient les stores et modals nécessaires) ...
     if not current_user.is_authenticated:
         try:
             login_path = dash.page_registry['pages.login']['relative_path']
@@ -44,46 +45,58 @@ def layout():
                 dbc.Tab(label="Dashboard", tab_id="dashboard"),
                 dbc.Tab(label="Gestion des comptes clients", tab_id="gestion-comptes"),
                 dbc.Tab(label="Suivi des réclamations", tab_id="suivi-reclamations"),
-            ], id="agent-tabs", active_tab="suivi-reclamations"), # Onglet par défaut
+            ], id="agent-tabs", active_tab="suivi-reclamations"),
             html.Div(id="agent-content", className="mt-3"),
             dcc.Store(id="sort-state", data={"column": DEFAULT_SORT_COLUMN, "direction": DEFAULT_SORT_DIRECTION}),
-            # Le conteneur modal reste ici, mais le modal lui-même sera généré dynamiquement
-            html.Div(id="modal-container")
+            html.Div(id="modal-container"), # Pour le modal des détails réclamation
+            # Stores et Modals pour la suppression (inchangés)
+            dcc.Store(id='store-delete-target-client-id', data=None),
+            dbc.Modal(
+                [
+                    dbc.ModalHeader(dbc.ModalTitle("Confirmation de suppression")),
+                    dbc.ModalBody(id="delete-client-modal-body", children="Êtes-vous sûr de vouloir supprimer ce compte ? Cette action est irréversible."),
+                    dbc.ModalFooter([
+                        dbc.Button("Annuler", id="cancel-delete-client-button", color="secondary"),
+                        dbc.Button("Confirmer la suppression", id="confirm-delete-client-button", color="danger"),
+                    ]),
+                ],
+                id="delete-client-confirmation-modal",
+                is_open=False,
+                backdrop="static",
+            ),
         ], fluid=True)
 
+
 # --- Fonctions pour générer le contenu des onglets ---
+# ... (dashboard_tab, gestion_comptes_tab, suivi_reclamations_tab restent inchangées dans leur structure) ...
 def dashboard_tab():
-    # --- REMETTRE VOTRE CODE ORIGINAL ICI ---
     return dbc.Card(
         dbc.CardBody([
             html.H4("Dashboard", className="card-title"),
             dbc.Row([
-                dbc.Col([html.H6("Taux de satisfaction client :"), html.P("85%")], md=6), # Exemple de valeur
-                dbc.Col([html.H6("Taux moyen de réponse :"), html.P("2 minutes")], md=6), # Exemple
+                dbc.Col([html.H6("Taux de satisfaction client :"), html.P("85%")], md=6),
+                dbc.Col([html.H6("Taux moyen de réponse :"), html.P("2 minutes")], md=6),
             ]),
             dbc.Row([
-                dbc.Col([html.H6("Taux d'escalade :"), html.P("5%")], md=6), # Exemple
-                dbc.Col([html.H6("Taux de résolution en première interaction :"), html.P("70%")], md=6), # Exemple
+                dbc.Col([html.H6("Taux d'escalade :"), html.P("5%")], md=6),
+                dbc.Col([html.H6("Taux de résolution en première interaction :"), html.P("70%")], md=6),
             ]),
-            # Ajoutez d'autres statistiques ou graphiques si vous en aviez
         ])
     )
 
 def gestion_comptes_tab():
-    # --- REMETTRE VOTRE CODE ORIGINAL ICI ---
-    return dbc.Card(
+     return dbc.Card(
         dbc.CardBody([
             html.H4("Gestion des comptes clients", className="card-title"),
             dbc.Label("Rechercher un compte par email :"),
             dbc.Input(type="email", id="recherche-email", placeholder="Email du client", className="mb-3"),
-            dbc.Button("Rechercher", id="bouton-rechercher", color="primary", className="mr-1"), # ou me-1 avec Bootstrap 5
-            # La div où les résultats de la recherche s'afficheront (via un autre callback si nécessaire)
+            dbc.Button("Rechercher", id="bouton-rechercher", color="primary", className="mr-1"),
             html.Div(id="resultat-recherche", className="mt-3"),
         ])
     )
 
 def suivi_reclamations_tab(sort_state):
-    # ... (code inchangé, mais s'assurer que les boutons 'Voir' ont le bon ID à motif) ...
+    # ... (code inchangé) ...
     sort_column = sort_state.get("column", DEFAULT_SORT_COLUMN)
     sort_direction = sort_state.get("direction", DEFAULT_SORT_DIRECTION)
     reclamations = []
@@ -94,16 +107,19 @@ def suivi_reclamations_tab(sort_state):
                     reclamations = json.load(f)
                     if not isinstance(reclamations, list): reclamations = []
                 except json.JSONDecodeError: reclamations = []
-
     try:
         reclamations.sort(
-            key=lambda r: datetime.strptime(r.get("date", "01/01/1900 00:00"), "%d/%m/%Y %H:%M")
-            if sort_column == "date" and r.get("date") else str(r.get(sort_column, '')).lower(),
+            key=lambda r: (
+                datetime.strptime(r.get("date", "01/01/1900 00:00"), "%d/%m/%Y %H:%M")
+                if sort_column == "date" and r.get("date")
+                else str(val) if (val := r.get(sort_column)) is not None and isinstance(val, (int, float))
+                else str(val).lower() if (val := r.get(sort_column)) is not None
+                else ""
+            ),
             reverse=sort_direction
         )
-    except (ValueError, TypeError) as e:
+    except (ValueError, TypeError, AttributeError) as e:
         print(f"Erreur lors du tri dans agent.py : {e}")
-
     table_header = [
         html.Thead(html.Tr([
             html.Th(dbc.Button("Nom", id={'type': 'sort-button', 'column': 'nom'}, color="link", className="p-0")),
@@ -121,15 +137,98 @@ def suivi_reclamations_tab(sort_state):
                     html.Td(r.get("nom", "N/A")),
                     html.Td(r.get("date", "N/A")),
                     html.Td(r.get("statut", "N/A")),
-                    # S'assurer que l'ID du bouton "Voir" est bien à motif
-                    html.Td(dbc.Button("Voir", color="primary", size="sm", id={"type": "voir-reclamation", "index": r.get("id", uuid.uuid4())})) # Générer clé unique si id manque
-                # Utiliser une clé unique pour chaque ligne
-                ], key=r.get("id", f"row-{i}")) for i, r in enumerate(reclamations) # if r.get("id") # S'assurer que chaque réclamation a un id
+                    html.Td(dbc.Button("Voir", color="primary", size="sm", id={"type": "voir-reclamation", "index": r.get("id", f"gen-{i}")}))
+                ], key=r.get("id", f"row-{i}")) for i, r in enumerate(reclamations)
             ])
         ]
-
     table = dbc.Table(table_header + table_body, bordered=True, striped=True, hover=True, responsive=True)
     return dbc.Card(dbc.CardBody([html.H4("Suivi des réclamations"), table]))
+
+# =======================================================================
+# === FONCTIONS DE BASE DE DONNÉES (Recherche + MAJ Rôle + Suppression) ===
+# =======================================================================
+
+def find_client_by_email(email_address):
+    # ... (Fonction find_client_by_email précédente, utilisant sqlite3, inchangée) ...
+    conn = None
+    TABLE_NAME = 'users' # Adapte si nécessaire
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        sql_query = f"""
+            SELECT id, username, email, role
+            FROM {TABLE_NAME} WHERE email = ?
+        """
+        cursor.execute(sql_query, (email_address,))
+        result_row = cursor.fetchone()
+        if result_row:
+            account_data = {
+                "id_client": result_row["id"],
+                "username": result_row["username"],
+                "email": result_row["email"],
+                "role": result_row["role"]
+            }
+            print(f"Données trouvées en BDD : {account_data}")
+            return account_data
+        else:
+            print(f"Email {email_address} non trouvé dans la table '{TABLE_NAME}'.")
+            return None
+    except sqlite3.Error as e:
+        print(f"Erreur lors de l'accès à la base de données SQLite ('{TABLE_NAME}') : {e}")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+def delete_client_by_id(client_id):
+    # ... (Fonction delete_client_by_id précédente, utilisant sqlite3, inchangée) ...
+    conn = None
+    TABLE_NAME = 'users' # Adapte si nécessaire
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        sql_query = f"DELETE FROM {TABLE_NAME} WHERE id = ?"
+        cursor.execute(sql_query, (client_id,))
+        conn.commit()
+        if cursor.rowcount > 0:
+            print(f"Client ID {client_id} supprimé avec succès de la table '{TABLE_NAME}'.")
+            return True
+        else:
+            print(f"Aucun client trouvé avec l'ID {client_id} dans '{TABLE_NAME}' pour suppression.")
+            return False
+    except sqlite3.Error as e:
+        print(f"Erreur lors de la suppression dans la base de données SQLite ('{TABLE_NAME}') : {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def update_client_role_in_db(client_id, new_role):
+    # ... (Fonction update_client_role_in_db précédente, utilisant sqlite3, inchangée) ...
+    if new_role not in AVAILABLE_ROLES:
+        print(f"Erreur: Rôle '{new_role}' non valide.")
+        return False
+    conn = None
+    TABLE_NAME = 'users' # Adapte si nécessaire
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        sql_query = f"UPDATE {TABLE_NAME} SET role = ? WHERE id = ?"
+        cursor.execute(sql_query, (new_role, client_id))
+        conn.commit()
+        if cursor.rowcount > 0:
+            print(f"Rôle du client ID {client_id} mis à jour à '{new_role}' dans '{TABLE_NAME}'.")
+            return True
+        else:
+            print(f"Aucun client trouvé avec l'ID {client_id} dans '{TABLE_NAME}' pour mise à jour du rôle.")
+            return False
+    except sqlite3.Error as e:
+        print(f"Erreur lors de la mise à jour du rôle dans la BDD SQLite ('{TABLE_NAME}') : {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
 
 # --- Callbacks ---
 
@@ -140,6 +239,7 @@ def suivi_reclamations_tab(sort_state):
     Input("sort-state", "data"),
 )
 def render_tab_content(active_tab, sort_state):
+    # ... (code inchangé) ...
     if not current_user.is_authenticated or current_user.role != 'admin':
          return no_update
     if active_tab == "dashboard":
@@ -150,30 +250,23 @@ def render_tab_content(active_tab, sort_state):
         return suivi_reclamations_tab(sort_state or {"column": DEFAULT_SORT_COLUMN, "direction": DEFAULT_SORT_DIRECTION})
     return html.P("Onglet non trouvé")
 
-# --- NOUVELLE APPROCHE POUR LE MODAL ---
-
-# Callback 1 : Ouvre le modal et affiche les détails
+# Callbacks pour le modal de détails réclamation (INCHANGÉS)
 @callback(
-    Output("modal-container", "children"), # Sortie : le conteneur qui tiendra le modal
-    Input({"type": "voir-reclamation", "index": ALL}, "n_clicks"), # Entrée : Clic sur N'IMPORTE quel bouton "Voir"
+    Output("modal-container", "children"),
+    Input({"type": "voir-reclamation", "index": ALL}, "n_clicks"),
     prevent_initial_call=True
 )
 def display_reclamation_modal(n_clicks):
+     # ... (code inchangé) ...
     ctx = callback_context
-    # Vérifier si un bouton "Voir" a réellement été cliqué (et non un autre callback)
     if not ctx.triggered or not any(click for click in n_clicks if click):
         return no_update
-
-    # Obtenir l'ID complet du bouton cliqué
     triggered_id_str = ctx.triggered[0]['prop_id'].split('.')[0]
     try:
-        # Extraire l'index (ID de la réclamation) de l'ID du bouton
         triggered_id_dict = json.loads(triggered_id_str.replace("'", "\""))
         if isinstance(triggered_id_dict, dict) and triggered_id_dict.get("type") == "voir-reclamation":
             reclamation_id = triggered_id_dict.get("index")
-            if not reclamation_id: return no_update # Pas d'index trouvé
-
-            # --- Charger et trouver la réclamation ---
+            if not reclamation_id: return no_update
             reclamations = []
             if os.path.exists(DATA_FILE):
                  if os.path.getsize(DATA_FILE) > 0:
@@ -183,13 +276,8 @@ def display_reclamation_modal(n_clicks):
                             if not isinstance(reclamations, list): reclamations = []
                         except json.JSONDecodeError: reclamations = []
             reclamation = next((r for r in reclamations if r.get("id") == reclamation_id), None)
-            # --- Fin chargement ---
-
             if not reclamation:
                 return dbc.Alert(f"Réclamation ID {reclamation_id} non trouvée.", color="warning", duration=4000)
-
-            # --- Créer le composant Modal ---
-            # Important : Le Modal lui-même et le bouton Fermer ont des ID fixes
             modal = dbc.Modal(
                 [
                     dbc.ModalHeader(dbc.ModalTitle(f"Détails - {reclamation.get('nom', 'N/A')}")),
@@ -202,65 +290,56 @@ def display_reclamation_modal(n_clicks):
                         html.P(reclamation.get('description', 'N/A'), style={'whiteSpace': 'pre-wrap'})
                     ]),
                     dbc.ModalFooter(
-                        # ID fixe pour le bouton fermer
                         dbc.Button("Fermer", id="agent-close-modal-button", className="ms-auto")
                     ),
                 ],
-                id="agent-reclamation-detail-modal", # ID fixe pour le modal
-                is_open=True, # Ouvrir le modal lors de sa création
+                id="agent-reclamation-detail-modal",
+                is_open=True,
                 size="lg"
             )
-            # Retourner le modal pour l'afficher dans "modal-container"
             return modal
         else:
-            return no_update # L'ID déclencheur n'était pas un bouton "Voir"
+            return no_update
     except (json.JSONDecodeError, TypeError, ValueError) as e:
         print(f"Erreur parsing ID modal: {e}, triggered_id: {triggered_id_str}")
         return no_update
 
-
-# Callback 2 : Ferme le modal
 @callback(
-    Output("agent-reclamation-detail-modal", "is_open"), # Sortie : propriété is_open du modal
-    Input("agent-close-modal-button", "n_clicks"),     # Entrée : clic sur le bouton Fermer
-    State("agent-reclamation-detail-modal", "is_open"),# Entrée : état actuel du modal
+    Output("agent-reclamation-detail-modal", "is_open"),
+    Input("agent-close-modal-button", "n_clicks"),
+    State("agent-reclamation-detail-modal", "is_open"),
     prevent_initial_call=True
 )
 def close_reclamation_modal(n_clicks, is_open):
-    # Si le bouton est cliqué ET que le modal est actuellement ouvert
+     # ... (code inchangé) ...
     if n_clicks and is_open:
-        return False # Retourner False pour fermer le modal (mettre is_open à False)
-    # Sinon, ne rien faire (ne pas changer l'état is_open)
+        return False
     return no_update
 
-
-# Callback pour le tri de la table (INCHANGÉ, mais vérifier les ID)
+# Callback pour le tri de la table (INCHANGÉ)
 @callback(
     Output("sort-state", "data"),
-    Input({'type': 'sort-button', 'column': ALL}, 'n_clicks'), # Utilise le nouvel ID à motif
+    Input({'type': 'sort-button', 'column': ALL}, 'n_clicks'),
     State("sort-state", "data"),
     prevent_initial_call=True
 )
 def sort_table(sort_clicks, sort_state):
+    # ... (code inchangé) ...
     ctx = callback_context
     if not ctx.triggered or not any(click for click in sort_clicks if click):
         return no_update
-
     triggered_id_str = ctx.triggered[0]["prop_id"].split(".")[0]
     try:
         triggered_id_dict = json.loads(triggered_id_str.replace("'", "\""))
         if isinstance(triggered_id_dict, dict) and triggered_id_dict.get("type") == "sort-button":
             column = triggered_id_dict.get("column")
             if not column: return no_update
-
             current_column = sort_state.get("column", DEFAULT_SORT_COLUMN)
             current_direction = sort_state.get("direction", DEFAULT_SORT_DIRECTION)
-
             if column == current_column:
                 new_direction = not current_direction
             else:
                 new_direction = False
-
             new_sort_state = {"column": column, "direction": new_direction}
             print(f"Nouveau tri demandé (Agent): {new_sort_state}")
             return new_sort_state
@@ -269,3 +348,183 @@ def sort_table(sort_clicks, sort_state):
     except (json.JSONDecodeError, TypeError, ValueError) as e:
          print(f"Erreur parsing ID sort: {e}, triggered_id: {triggered_id_str}")
          return no_update
+
+# ==================================================================
+# === CALLBACK POUR LA RECHERCHE EMAIL (MODIFIÉ POUR DROPDOWN RÔLE) ===
+# ==================================================================
+@callback(
+    Output("resultat-recherche", "children"),
+    Input("bouton-rechercher", "n_clicks"),
+    Input("recherche-email", "n_submit"),
+    State("recherche-email", "value"),
+    prevent_initial_call=True
+)
+def search_client_account(n_clicks, n_submit, email_to_search):
+    # ... (code de recherche et affichage modifié pour inclure le dropdown et bouton Enregistrer rôle) ...
+    triggered_id = callback_context.triggered_id
+    if (triggered_id == "bouton-rechercher" or triggered_id == "recherche-email") and email_to_search:
+        print(f"Recherche du compte pour l'email : {email_to_search}")
+        account_data = find_client_by_email(email_to_search)
+
+        if account_data:
+            client_id = account_data.get('id_client')
+            current_role = account_data.get('role')
+
+            result_layout = dbc.Card(dbc.CardBody([
+                html.H5("Compte trouvé", className="card-title"),
+                dbc.ListGroup([
+                    dbc.ListGroupItem(f"ID Client : {client_id}"),
+                    dbc.ListGroupItem(f"Nom d'utilisateur : {account_data.get('username', 'N/A')}"),
+                    dbc.ListGroupItem(f"Email : {account_data.get('email', 'N/A')}"),
+                    dbc.ListGroupItem([
+                        "Rôle : ",
+                        dbc.Select(
+                            id={'type': 'role-select', 'index': client_id},
+                            options=[
+                                {'label': role.capitalize(), 'value': role} for role in AVAILABLE_ROLES
+                            ],
+                            value=current_role if current_role in AVAILABLE_ROLES else None,
+                            placeholder="Choisir un rôle..." if current_role not in AVAILABLE_ROLES else None,
+                            size="sm",
+                            style={'display': 'inline-block', 'width': 'auto', 'marginLeft': '10px'}
+                        ),
+                        dbc.Button(
+                            "Enregistrer le rôle",
+                            id={'type': 'save-role-btn', 'index': client_id},
+                            color="success",
+                            size="sm",
+                            className="ms-2"
+                        )
+                    ]),
+                ], flush=True, className="mb-3"),
+                dbc.Button(
+                    "Supprimer ce compte",
+                    id={'type': 'delete-client-open-modal-btn', 'index': client_id},
+                    color="danger",
+                    size="sm",
+                    className="mt-2"
+                )
+            ]), className="mt-3")
+            return result_layout
+        else:
+            return dbc.Alert(f"Aucun compte trouvé pour l'adresse e-mail : {email_to_search}", color="warning", className="mt-3")
+    elif (triggered_id == "bouton-rechercher" or triggered_id == "recherche-email") and not email_to_search:
+        return dbc.Alert("Veuillez entrer une adresse e-mail à rechercher.", color="info", className="mt-3")
+    else:
+        return no_update
+
+
+# ============================================================
+# === CALLBACK POUR LA MISE À JOUR DU RÔLE (CORRIGÉ) ===
+# ============================================================
+@callback(
+    # Sortie : Met à jour la zone de résultat avec un message de succès/erreur
+    Output("resultat-recherche", "children", allow_duplicate=True),
+    # Entrée : Clic sur N'IMPORTE quel bouton "Enregistrer le rôle"
+    Input({"type": "save-role-btn", "index": ALL}, "n_clicks"),
+    # State : Lire les valeurs de TOUS les dropdowns visibles
+    State({"type": "role-select", "index": ALL}, "value"),
+    # State : Lire les IDs de TOUS les dropdowns visibles (pour faire le lien)
+    State({"type": "role-select", "index": ALL}, "id"),
+    prevent_initial_call=True
+)
+def update_client_role(save_btn_n_clicks, role_select_values, role_select_ids):
+    triggered = callback_context.triggered
+    # Vérifier si un des boutons "Enregistrer" a été cliqué
+    if not triggered or not any(click for click in save_btn_n_clicks if click):
+        return no_update
+
+    # Obtenir l'ID du bouton qui a déclenché le callback
+    triggered_button_id_dict = callback_context.triggered_id
+    # Vérifier si l'ID est bien celui attendu
+    if not isinstance(triggered_button_id_dict, dict) or triggered_button_id_dict.get("type") != "save-role-btn":
+        return no_update # Déclenché par autre chose
+
+    # Extraire l'ID client de l'ID du bouton cliqué
+    client_id = triggered_button_id_dict.get('index')
+    if not client_id:
+        return dbc.Alert("Erreur : ID client non trouvé.", color="danger")
+
+    # Trouver la valeur du dropdown correspondant à ce client_id
+    selected_role = None
+    for i, select_id_dict in enumerate(role_select_ids):
+        # Vérifier si select_id_dict est bien un dictionnaire avant d'utiliser .get()
+        if isinstance(select_id_dict, dict) and select_id_dict.get('index') == client_id:
+            # Assurer que l'index est valide pour la liste des valeurs
+            if i < len(role_select_values):
+                 selected_role = role_select_values[i]
+                 break # On a trouvé la valeur correspondante
+
+    if client_id and selected_role:
+        print(f"Tentative de mise à jour du rôle pour client ID {client_id} à '{selected_role}'")
+        # Appeler la fonction de mise à jour en BDD
+        update_success = update_client_role_in_db(client_id, selected_role)
+
+        if update_success:
+            # Afficher un message de succès
+            # Note: Ceci remplacera la carte d'info utilisateur. Pour garder la carte et ajouter un message,
+            # il faudrait une structure de sortie plus complexe ou un composant d'alerte séparé.
+            return dbc.Alert(f"Le rôle du client ID {client_id} a été mis à jour à '{selected_role}'.", color="success", duration=4000, className="mt-3")
+        else:
+            # Afficher un message d'erreur
+             return dbc.Alert(f"Erreur lors de la mise à jour du rôle pour le client ID {client_id}.", color="danger", className="mt-3")
+    elif client_id and not selected_role:
+         # Si le rôle n'est pas sélectionné dans le dropdown
+         return dbc.Alert("Veuillez sélectionner un rôle avant d'enregistrer.", color="warning", className="mt-3")
+    else:
+        # Cas où client_id n'a pas pu être déterminé ou selected_role non trouvé
+        return dbc.Alert("Erreur lors de la récupération des informations pour la mise à jour.", color="danger", className="mt-3")
+
+
+# ==================================================================
+# === CALLBACKS POUR LE MODAL DE CONFIRMATION DE SUPPRESSION (INCHANGÉS) ===
+# ==================================================================
+# ... (open_delete_confirmation_modal et handle_delete_confirmation inchangés) ...
+@callback(
+    Output("delete-client-confirmation-modal", "is_open"),
+    Output("store-delete-target-client-id", "data"),
+    Output("delete-client-modal-body", "children"),
+    Input({"type": "delete-client-open-modal-btn", "index": ALL}, "n_clicks"),
+    State({"type": "delete-client-open-modal-btn", "index": ALL}, "id"),
+    prevent_initial_call=True
+)
+def open_delete_confirmation_modal(n_clicks, button_ids):
+    # ... (code inchangé) ...
+    ctx = callback_context
+    if not ctx.triggered or not any(click for click in n_clicks if click):
+        return no_update, no_update, no_update
+    button_id_dict = ctx.triggered_id
+    if button_id_dict and button_id_dict.get('type') == 'delete-client-open-modal-btn':
+        client_id_to_delete = button_id_dict.get('index')
+        modal_body_text = f"Êtes-vous sûr de vouloir supprimer le compte ID: {client_id_to_delete}? Cette action est irréversible."
+        print(f"Ouverture du modal de suppression pour l'ID client : {client_id_to_delete}")
+        return True, client_id_to_delete, modal_body_text
+    else:
+        return no_update, no_update, no_update
+
+@callback(
+    Output("delete-client-confirmation-modal", "is_open", allow_duplicate=True),
+    Output("resultat-recherche", "children", allow_duplicate=True),
+    Output("store-delete-target-client-id", "data", allow_duplicate=True),
+    Input("confirm-delete-client-button", "n_clicks"),
+    Input("cancel-delete-client-button", "n_clicks"),
+    State("store-delete-target-client-id", "data"),
+    prevent_initial_call=True
+)
+def handle_delete_confirmation(confirm_clicks, cancel_clicks, client_id_to_delete):
+    # ... (code inchangé) ...
+    triggered_id = callback_context.triggered_id
+    if triggered_id == "confirm-delete-client-button" and client_id_to_delete:
+        print(f"Confirmation de suppression reçue pour l'ID client : {client_id_to_delete}")
+        delete_success = delete_client_by_id(client_id_to_delete)
+        if delete_success:
+            result_message = dbc.Alert(f"Le compte ID {client_id_to_delete} a été supprimé avec succès.", color="success", duration=5000, className="mt-3")
+        else:
+            result_message = dbc.Alert(f"Erreur lors de la suppression du compte ID {client_id_to_delete}. Consultez les logs.", color="danger", className="mt-3")
+        # Vide la zone de résultat après suppression
+        return False, result_message, None
+    elif triggered_id == "cancel-delete-client-button":
+        print("Annulation de la suppression.")
+        return False, no_update, None
+    else:
+        return no_update, no_update, no_update

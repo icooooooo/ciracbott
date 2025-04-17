@@ -1,6 +1,5 @@
 import dash
 import dash_bootstrap_components as dbc
-# Importer callback, Input, Output, State si besoin pour feedback dynamique (pas nécessaire pour soumission simple)
 from dash import html, dcc, callback, Input, Output, State, no_update
 
 # Enregistrement de la page (INCHANGÉ)

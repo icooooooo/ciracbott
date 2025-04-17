@@ -10,14 +10,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3 
 import click 
 from flask.cli import with_appcontext 
-
-
 from components import navbar
-
-
 server = flask.Flask(__name__)
-
-
 PREFERENCES_FILE = "preferences.json"
 try:
     with open(PREFERENCES_FILE, "r") as f:
@@ -30,7 +24,6 @@ server.config.update(
     SECRET_KEY=os.environ.get('SECRET_KEY', os.urandom(24)),
 )
 
-# --- Configuration Base de Données SQLite ---
 DATABASE = 'ciracbot.db'
 
 def get_db():
@@ -375,14 +368,11 @@ app.layout = html.Div(
 
 @callback(
     Output('navbar-container', 'children'),
-    Input('url', 'pathname') # Se déclenche au changement d'URL (pour refléter login/logout)
+    Input('url', 'pathname') 
 )
 def update_navbar(_pathname):
-    # Assurez-vous que votre fonction navbar.Navbar accepte current_user
-    # et adapte les liens affichés (Se connecter/Déconnexion, Agent, etc.)
     return navbar.Navbar(current_user)
 
-# Callback pour afficher les messages Flash (sur la page de login)
 @callback(
     # L'ID de sortie DOIT correspondre à un élément dans pages/login.py
     Output('login-flash-output', 'children', allow_duplicate=True),
